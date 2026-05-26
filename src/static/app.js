@@ -19,13 +19,32 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        const participantsList = details.participants
+          .map(participant => `<li><span>${participant}</span><button class="delete-participant-btn" data-activity="${name}" data-email="${participant}" aria-label="Remove ${participant}">✕</button></li>`)
+          .join('');
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Signed Up:</strong>
+            <ul class="participants-list">
+              ${participantsList || '<li class="no-participants">No participants yet</li>'}
+            </ul>
+          </div>
         `;
+
+        // Add event listeners for delete buttons
+        activityCard.querySelectorAll('.delete-participant-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const activityName = btn.getAttribute('data-activity');
+            const email = btn.getAttribute('data-email');
+            await removeParticipant(activityName, email);
+          });
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -80,6 +100,28 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error signing up:", error);
     }
   });
+
+  // Function to remove a participant from an activity
+  async function removeParticipant(activityName, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        // Refresh activities to update the list
+        await fetchActivities();
+      } else {
+        const result = await response.json();
+        console.error("Error removing participant:", result.detail || "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error removing participant:", error);
+    }
+  }
 
   // Initialize app
   fetchActivities();
